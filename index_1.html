@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+
+<!-- iOS standalone (full-screen Home Screen) mode -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="How I Feel">
+<meta name="format-detection" content="telephone=no">
+<meta name="theme-color" content="#f2f5fa">
+<title>How I Feel</title>
+
+<!-- Placeholder icon; replaced at runtime by a generated 180x180 PNG (see script) -->
+<link id="touchIcon" rel="apple-touch-icon" sizes="180x180"
+      href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==">
+
+<style>
+  /* ---------- Theme tokens ---------- */
+  :root {
+    color-scheme: light;
+    --bg: #f2f5fa;
+    --surface: #ffffff;
+    --text: #0f172a;
+    --muted: #475569;
+    --shadow: 0 6px 18px rgba(15, 23, 42, .12);
+    --bar: #14213d;
+    --press-text: #ffffff;
+
+    /* default border accents */
+    --a1: #15803d; --a2: #1d4ed8; --a3: #c2410c; --a4: #be123c; --a5: #a16207;
+    /* vivid pressed fills */
+    --p1: #15803d; --p2: #1d4ed8; --p3: #c2410c; --p4: #be123c; --p5: #a16207;
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #0b1220;
+    --surface: #1a2438;
+    --text: #f8fafc;
+    --muted: #cbd5e1;
+    --shadow: 0 6px 18px rgba(0, 0, 0, .5);
+    --bar: #070c17;
+    --press-text: #0b1220;
+
+    --a1: #4ade80; --a2: #60a5fa; --a3: #fb923c; --a4: #fb7185; --a5: #facc15;
+    --p1: #22c55e; --p2: #3b82f6; --p3: #f97316; --p4: #f43f5e; --p5: #eab308;
+  }
+
+  /* ---------- Base / iOS behavior ---------- */
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Rounded", "SF Pro Text", system-ui, "Segoe UI", Roboto, sans-serif;
+    touch-action: manipulation;
+    overscroll-behavior: none;
+    overflow: hidden;
+    -webkit-text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  button { font: inherit; color: inherit; touch-action: manipulation; }
+
+  .app {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    height: 100dvh;
+  }
+
+  /* ---------- Header (always dark so iOS white status-bar text stays readable) ---------- */
+  .bar {
+    background: var(--bar);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding-top: env(safe-area-inset-top);
+    padding-left: max(16px, env(safe-area-inset-left));
+    padding-right: max(16px, env(safe-area-inset-right));
+    min-height: calc(60px + env(safe-area-inset-top));
+  }
+  .bar h1 {
+    margin: 0;
+    font-size: 1.35rem;
+    font-weight: 800;
+    letter-spacing: .01em;
+  }
+
+  /* Dark / Light switch */
+  .switch {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 52px;
+    min-width: 52px;
+    padding: 0 6px;
+    background: transparent;
+    border: 0;
+    border-radius: 14px;
+    font-size: 1.5rem;
+    line-height: 1;
+    cursor: pointer;
+  }
+  .switch .track {
+    position: relative;
+    width: 64px;
+    height: 34px;
+    border-radius: 17px;
+    background: #64748b;
+    transition: background-color .25s ease;
+  }
+  .switch .knob {
+    position: absolute;
+    top: 3px; left: 3px;
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 1px 4px rgba(0,0,0,.4);
+    transition: transform .25s ease;
+  }
+  .switch[aria-checked="true"] .track { background: #3b82f6; }
+  .switch[aria-checked="true"] .knob { transform: translateX(30px); }
+  .switch:focus-visible { outline: 3px solid #93c5fd; outline-offset: 2px; }
+
+  /* ---------- Status message ---------- */
+  .status {
+    margin: 12px max(16px, env(safe-area-inset-right)) 0 max(16px, env(safe-area-inset-left));
+    min-height: 3.4rem;
+    padding: 10px 16px;
+    border-radius: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    font-size: clamp(1.05rem, 2.2vmin + .6rem, 1.5rem);
+    font-weight: 700;
+    color: var(--muted);
+    background: transparent;
+    transition: background-color .35s ease, color .35s ease;
+  }
+  .status.on { background: var(--p); color: var(--press-text); transition: none; }
+  .status[data-k="1"] { --p: var(--p1); }
+  .status[data-k="2"] { --p: var(--p2); }
+  .status[data-k="3"] { --p: var(--p3); }
+  .status[data-k="4"] { --p: var(--p4); }
+  .status[data-k="5"] { --p: var(--p5); }
+
+  /* ---------- Symptom grid ---------- */
+  .grid {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    display: grid;
+    gap: clamp(12px, 2.4vmin, 22px);
+    grid-template-columns: repeat(6, 1fr);
+    grid-template-rows: repeat(3, minmax(110px, 1fr));
+    padding: 12px max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+  }
+  /* Portrait: 2 + 2 + 1 (last button full width) */
+  .symptom:nth-child(-n+4) { grid-column: span 3; }
+  .symptom:nth-child(5)    { grid-column: span 6; }
+
+  /* Landscape: 3 + 2 */
+  @media (orientation: landscape) {
+    .grid { grid-template-rows: repeat(2, minmax(110px, 1fr)); }
+    .symptom:nth-child(-n+3) { grid-column: span 2; }
+    .symptom:nth-child(n+4)  { grid-column: span 3; }
+  }
+
+  .symptom {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: clamp(6px, 1.6vmin, 16px);
+    min-width: 60px;
+    min-height: 60px;
+    padding: 10px;
+    background: var(--surface);
+    color: var(--text);
+    border: 4px solid var(--a);
+    border-radius: 28px;
+    box-shadow: var(--shadow);
+    cursor: pointer;
+    text-align: center;
+    -webkit-appearance: none;
+    appearance: none;
+    /* Reset state: gentle fade back to default */
+    transition: background-color .5s ease, border-color .5s ease, color .5s ease,
+                box-shadow .5s ease, transform .5s ease;
+  }
+  .symptom:nth-child(1) { --a: var(--a1); --p: var(--p1); }
+  .symptom:nth-child(2) { --a: var(--a2); --p: var(--p2); }
+  .symptom:nth-child(3) { --a: var(--a3); --p: var(--p3); }
+  .symptom:nth-child(4) { --a: var(--a4); --p: var(--p4); }
+  .symptom:nth-child(5) { --a: var(--a5); --p: var(--p5); }
+
+  .symptom .ico {
+    font-size: clamp(3rem, 15vw, 6.5rem);
+    line-height: 1;
+  }
+  .symptom .label {
+    font-size: clamp(1.25rem, 5.2vw, 2.2rem);
+    font-weight: 800;
+    line-height: 1.15;
+    text-wrap: balance;
+  }
+  @media (orientation: landscape) {
+    .symptom .ico   { font-size: clamp(2.4rem, 13vh, 5.5rem); }
+    .symptom .label { font-size: clamp(1.1rem, 4.4vh, 2rem); }
+  }
+
+  /* Pressed state: instant, vivid */
+  .symptom.active {
+    transition: none;
+    background: var(--p);
+    border-color: var(--p);
+    color: var(--press-text);
+    transform: scale(.96);
+    box-shadow: 0 0 0 4px var(--bg), 0 0 0 8px var(--p);
+  }
+  .symptom:focus-visible { outline: 4px solid var(--text); outline-offset: 4px; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .symptom, .switch .knob, .switch .track { transition-duration: .01s; }
+    .symptom.active { transform: none; }
+  }
+</style>
+
+<!-- Set theme before first paint (no flash) -->
+<script>
+(function () {
+  var t = null;
+  try { t = localStorage.getItem('feel-theme'); } catch (e) {}
+  if (t !== 'dark' && t !== 'light') {
+    t = (window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+  }
+  document.documentElement.setAttribute('data-theme', t);
+})();
+</script>
+</head>
+
+<body>
+<div class="app">
+
+  <header class="bar">
+    <h1>How I Feel</h1>
+    <button id="themeSwitch" class="switch" role="switch" aria-checked="false" aria-label="Dark mode">
+      <span aria-hidden="true">☀️</span>
+      <span class="track" aria-hidden="true"><span class="knob"></span></span>
+      <span aria-hidden="true">🌙</span>
+    </button>
+  </header>
+
+  <p id="status" class="status" role="status" aria-live="polite">Tap what you feel. We are listening.</p>
+
+  <main class="grid" aria-label="Symptom buttons">
+    <button class="symptom" data-k="1" type="button">
+      <span class="ico" aria-hidden="true">🤢</span>
+      <span class="label">Feel like vomiting</span>
+    </button>
+    <button class="symptom" data-k="2" type="button">
+      <span class="ico" aria-hidden="true">🫁</span>
+      <span class="label">Chest hurts</span>
+    </button>
+    <button class="symptom" data-k="3" type="button">
+      <span class="ico" aria-hidden="true">🦒</span>
+      <span class="label">Throat hurts</span>
+    </button>
+    <button class="symptom" data-k="4" type="button">
+      <span class="ico" aria-hidden="true">😣</span>
+      <span class="label">Stomach hurts</span>
+    </button>
+    <button class="symptom" data-k="5" type="button">
+      <span class="ico" aria-hidden="true">💩</span>
+      <span class="label">I need to poop</span>
+    </button>
+  </main>
+
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var RESET_MS  = 900;    // button fades back to default after this long
+  var STATUS_MS = 4000;   // confirmation message clears after this long
+  var DEFAULT_MSG = 'Tap what you feel. We are listening.';
+
+  /* ================= Web Audio: synthesized ping (no audio files) ================= */
+  var AC = window.AudioContext || window.webkitAudioContext;
+  var ctx = null;
+  var silentEl = null;
+
+  function makeSilentWavURL() {
+    // 0.1 s of 8 kHz mono silence, built in code
+    var n = 800, buf = new ArrayBuffer(44 + n), v = new DataView(buf);
+    function str(o, s) { for (var i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); }
+    str(0, 'RIFF'); v.setUint32(4, 36 + n, true); str(8, 'WAVEfmt ');
+    v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+    v.setUint32(24, 8000, true); v.setUint32(28, 8000, true);
+    v.setUint16(32, 1, true); v.setUint16(34, 8, true);
+    str(36, 'data'); v.setUint32(40, n, true);
+    for (var i = 0; i < n; i++) v.setUint8(44 + i, 128);
+    return URL.createObjectURL(new Blob([buf], { type: 'audio/wav' }));
+  }
+
+  function initAudio() {
+    if (!AC) return;
+    if (!ctx) {
+      try { ctx = new AC({ latencyHint: 'interactive' }); }
+      catch (e) { try { ctx = new AC(); } catch (e2) { ctx = null; } }
+
+      // Make the sound play even when the iPhone's silent/ring switch is on.
+      try {
+        if (navigator.audioSession) {
+          navigator.audioSession.type = 'playback';           // iOS 16.4+
+        } else if (!silentEl) {                               // older iOS fallback
+          silentEl = new Audio(makeSilentWavURL());
+          silentEl.loop = true;
+          silentEl.setAttribute('playsinline', '');
+          var p = silentEl.play();
+          if (p && p.catch) p.catch(function () {});
+        }
+      } catch (e3) {}
+    }
+    if (ctx && ctx.state !== 'running' && ctx.resume) {
+      var r = ctx.resume();
+      if (r && r.catch) r.catch(function () {});
+    }
+  }
+
+  function ping() {
+    initAudio();
+    if (!ctx) return;
+    var t = ctx.currentTime;
+
+    // Envelope: quick attack, smooth bell-like decay
+    var master = ctx.createGain();
+    master.gain.setValueAtTime(0.0001, t);
+    master.gain.exponentialRampToValueAtTime(0.5, t + 0.008);
+    master.gain.exponentialRampToValueAtTime(0.0001, t + 0.75);
+    master.connect(ctx.destination);
+
+    // B5 fundamental + soft overtones = clean, pleasant electronic "ping"
+    [[988, 1], [1976, 0.25], [2964, 0.08]].forEach(function (p) {
+      var o = ctx.createOscillator();
+      var g = ctx.createGain();
+      o.type = 'sine';
+      o.frequency.value = p[0];
+      g.gain.value = p[1];
+      o.connect(g);
+      g.connect(master);
+      o.start(t);
+      o.stop(t + 0.8);
+    });
+  }
+
+  // iOS only fully unlocks audio on certain gesture events; retry on release too.
+  ['pointerup', 'touchend', 'click'].forEach(function (ev) {
+    document.addEventListener(ev, initAudio, { passive: true });
+  });
+
+  /* ================= Symptom buttons ================= */
+  var statusEl = document.getElementById('status');
+  var statusTimer = null;
+
+  function showStatus(btn) {
+    var label = btn.querySelector('.label').textContent;
+    statusEl.textContent = '✔ We got it: ' + label;
+    statusEl.setAttribute('data-k', btn.getAttribute('data-k'));
+    statusEl.classList.add('on');
+    clearTimeout(statusTimer);
+    statusTimer = setTimeout(function () {
+      statusEl.classList.remove('on');
+      statusEl.removeAttribute('data-k');
+      statusEl.textContent = DEFAULT_MSG;
+    }, STATUS_MS);
+  }
+
+  function press(btn) {
+    ping();                                   // immediate audio
+    btn.classList.add('active');              // immediate vivid highlight
+    clearTimeout(btn._resetTimer);
+    btn._resetTimer = setTimeout(function () {
+      btn.classList.remove('active');         // fades back via CSS transition
+    }, RESET_MS);
+    showStatus(btn);
+  }
+
+  Array.prototype.forEach.call(document.querySelectorAll('.symptom'), function (btn) {
+    // Touch / mouse / pen: react on contact, not on release
+    btn.addEventListener('pointerdown', function (e) {
+      if (e.pointerType === 'mouse' && e.button !== 0) return;
+      press(btn);
+    });
+    // Keyboard, VoiceOver, Switch Control (these fire click with detail === 0)
+    btn.addEventListener('click', function (e) {
+      if (e.detail === 0) press(btn);
+    });
+    btn.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+  });
+
+  /* ================= Dark / Light toggle ================= */
+  var root = document.documentElement;
+  var sw = document.getElementById('themeSwitch');
+  var themeMeta = document.querySelector('meta[name="theme-color"]');
+
+  function applyTheme(t, save) {
+    root.setAttribute('data-theme', t);
+    sw.setAttribute('aria-checked', t === 'dark' ? 'true' : 'false');
+    if (themeMeta) themeMeta.setAttribute('content', t === 'dark' ? '#0b1220' : '#f2f5fa');
+    if (save) { try { localStorage.setItem('feel-theme', t); } catch (e) {} }
+  }
+  applyTheme(root.getAttribute('data-theme') || 'light', false);
+  sw.addEventListener('click', function () {
+    applyTheme(root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark', true);
+  });
+
+  /* ================= Generated Home Screen icon (offline, no image file) ================= */
+  try {
+    var c = document.createElement('canvas');
+    c.width = c.height = 180;
+    var x = c.getContext('2d');
+    var g = x.createLinearGradient(0, 0, 180, 180);
+    g.addColorStop(0, '#3b82f6');
+    g.addColorStop(1, '#1e3a8a');
+    x.fillStyle = g;
+    x.fillRect(0, 0, 180, 180);
+    x.font = '96px -apple-system, "Apple Color Emoji", sans-serif';
+    x.textAlign = 'center';
+    x.textBaseline = 'middle';
+    x.fillText('💬', 90, 96);
+    document.getElementById('touchIcon').setAttribute('href', c.toDataURL('image/png'));
+  } catch (e) {}
+
+  /* Block iOS pinch-zoom gestures from disturbing the layout */
+  document.addEventListener('gesturestart', function (e) { e.preventDefault(); });
+
+  /* ================= Offline support (needs sw.js beside this file, served over https) ================= */
+  if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
+    window.addEventListener('load', function () {
+      navigator.serviceWorker.register('sw.js').catch(function () {});
+    });
+  }
+})();
+</script>
+</body>
+</html>
